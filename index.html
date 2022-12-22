@@ -488,7 +488,7 @@
 
     <h3 class="title-padding" id="patch-csrf">Patching CSRF</h3>
     <p>For patching CSRF, we must create unique tokens everytime we login. We store these tokens in our session and check against these tokens everytime we want to make a POST request, for example submitting a new page or changing the passwords. So we will include our session token inside of a hidden input element into the form and validate the session variable against the token from the form at the time of the POST HTTP method.</p>
-    <p>This method called Synchronizer Token Pattern.</p>
+    <p>This method is called Synchronizer Token Pattern.</p>
     <p>Even if an attacker crafts the form with his generated token, it will not be the same token as the victim's one thus making this attack ineffective.</p>
     <p>A side note: using the GET HTTP method for changing the state of a resource is not a good practice. AtomCMS 2.0 does this in several places. <a href="https://softwareengineering.stackexchange.com/a/188861" target="_blank">Read more here.</a> I modified those requests to be of type POST.</p>
 
