@@ -1,0 +1,44 @@
+body { 
+  padding-top: 70px;
+  padding-bottom: 200px;
+}
+
+.center {
+  display: block;
+  margin: 0 auto;
+  margin-top: 45px;
+  margin-bottom: 45px;
+}
+
+.title-padding {
+  padding-top: 75px;
+}
+
+.image {
+  width: 100%;
+  height: auto;
+}
+
+.image-small {
+  width: 350px;
+}
+
+.gif {
+  width: 350px;
+  height: auto;
+}
+
+.gif-large {
+  width: 100%;
+  height: auto;
+}
+
+pre {
+  font-size: 1rem;
+}
+
+@media(max-width: 320px) and (max-width: 768px) and (max-width: 1200px) {
+  .gif {
+    width: 100%;
+  }
+}

