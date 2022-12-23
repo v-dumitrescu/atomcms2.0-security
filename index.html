@@ -367,7 +367,8 @@
         the temporary file. It is also advised to have your "uploads" folder outside of your web root. You can put your
         "uploads" folder one level back from the root web directory (in "/var/www/" if the projects are located in
         /var/www/html/).</u> /var/www/html/ is the server's path for a debian based operating system. In Arch Linux, the server is located in /srv/html.</p>
-        <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error. Also, <code class="bg-dark text-white p-1">$_FILES['image']['mime']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we must use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
+        <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error. Also, <code class="bg-dark text-white p-1">
+          ['image']['type']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we must use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
     <p>I wrote a script for this kind of functionality which you can see <a target="_blank" href="https://github.com/v-dumitrescu/secure-file-upload">here</a>.</p>
     <hr />
 
@@ -533,7 +534,7 @@
     <p>It is a good practice to have your "uploads" folder outside of your root web directory.</p>
     <p>Also, you need to have <u><strong>PHP-GD</strong></u> library enabled in order for this script to work.</p>
     <p><a target="_blank" href="https://github.com/v-dumitrescu/secure-file-upload">You can see an example of secure file upload functionality here.</a></p>
-    <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error if we check the validity for the last dot followed by the extension. Also, <code class="bg-dark text-white p-1">$_FILES['image']['mime']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we will use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
+    <p>However, there is a gotcha to keep in mind: some images will not have a .png or .jpeg extension in the name, which could trigger an error if we check the validity for the last dot followed by the extension. Also, <code class="bg-dark text-white p-1">$_FILES['image']['type']</code> is not a reliable way of checking the mime because an image without an extension in the name can have a mime of application/octet-stream. For correctly checking the mime, we will use the <code class="bg-dark text-white p-1">finfo</code> php function which would return a mime of image/jpeg or image/png instead of application/octet-stream.</p>
 
     <hr />
 
